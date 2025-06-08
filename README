@@ -1,0 +1,8 @@
+V4L2Loopback-Viewport
+=====================
+
+This is a Godot plugin to create a SubViewport instance which feeds all its
+internal imagery out through a Video4Linux2 Loopback (v4l2loopback) video
+feed.
+
+Tested in Godot 4.4.1-stable.
