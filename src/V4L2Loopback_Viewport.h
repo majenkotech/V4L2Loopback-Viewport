@@ -21,6 +21,7 @@ namespace godot {
 			int dev_fd;
 			int frame_size;
 			int num_pix;
+			int bytes_per_pixel;
 
 			uint8_t *_buffer;
 
@@ -29,6 +30,7 @@ namespace godot {
 
 		public:
 			V4L2LoopbackViewport();
+			~V4L2LoopbackViewport();
 
 			void _set_device(String device);
 			String _get_device();

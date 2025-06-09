@@ -9,6 +9,19 @@
 using namespace godot;
 
 V4L2LoopbackViewport::V4L2LoopbackViewport() {
+	_buffer = NULL;
+	frame_size = 0;
+	dev_fd = -1;
+}
+
+V4L2LoopbackViewport::~V4L2LoopbackViewport() {
+	if (_buffer) {
+		bzero(_buffer, frame_size);
+		if (dev_fd > 0) {
+			write(dev_fd, _buffer, frame_size);
+		}
+		::free(_buffer);
+	}
 }
 
 void V4L2LoopbackViewport::_set_device(String dev) {
@@ -58,15 +71,24 @@ bool V4L2LoopbackViewport::init_v4l2_device() {
 	Vector2i vp_size = get_size();
 
 	num_pix = vp_size.x * vp_size.y;
-	frame_size = num_pix * 4;
+	bytes_per_pixel = 3;
+	if (has_transparent_background()) {
+		bytes_per_pixel = 4;
+	}
+
+	frame_size = num_pix * bytes_per_pixel;
 
 	vid_format.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
 	vid_format.fmt.pix.width = vp_size.x;
 	vid_format.fmt.pix.height = vp_size.y;
     vid_format.fmt.pix.sizeimage = frame_size;
-	vid_format.fmt.pix.pixelformat = V4L2_PIX_FMT_ABGR32;
+	if (bytes_per_pixel == 4) {
+		vid_format.fmt.pix.pixelformat = V4L2_PIX_FMT_ABGR32;
+	} else {
+		vid_format.fmt.pix.pixelformat = V4L2_PIX_FMT_BGR24;
+	}
 	vid_format.fmt.pix.field = V4L2_FIELD_NONE;
-    vid_format.fmt.pix.bytesperline = vp_size.x * 3;
+    vid_format.fmt.pix.bytesperline = vp_size.x * bytes_per_pixel;
 	vid_format.fmt.pix.colorspace = V4L2_COLORSPACE_SRGB;
 
 	ret_code = ioctl(dev_fd, VIDIOC_S_FMT, &vid_format);
@@ -91,13 +113,20 @@ void V4L2LoopbackViewport::_process(float _delta) {
 
 	const uint8_t *data = image->get_data().ptr();
 
-	for (int i = 0; i < frame_size; i+=4) {
-		_buffer[i + 0] = data[i + 2];
-		_buffer[i + 1] = data[i + 1];
-		_buffer[i + 2] = data[i + 0];
-		_buffer[i + 3] = data[i + 3];
+	if (bytes_per_pixel == 4) {
+		for (int i = 0; i < frame_size; i+=4) {
+			_buffer[i + 0] = data[i + 2];
+			_buffer[i + 1] = data[i + 1];
+			_buffer[i + 2] = data[i + 0];
+			_buffer[i + 3] = data[i + 3];
+		}
+	} else {
+		for (int i = 0; i < frame_size; i+=3) {
+			_buffer[i + 0] = data[i + 2];
+			_buffer[i + 1] = data[i + 1];
+			_buffer[i + 2] = data[i + 0];
+		}
 	}
-
 
 	write(dev_fd, _buffer, frame_size);
 }
